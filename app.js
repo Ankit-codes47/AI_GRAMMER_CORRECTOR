@@ -3,15 +3,16 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 
 const app = express();
-const port = process.env.PORT || 5000;
 
-// Initialize Gemini
+// Gemini
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-// Middleware
+// EJS
 app.set("view engine", "ejs");
+
+// Middleware
 app.use(express.urlencoded({ extended: true }));
 
 // Home page
@@ -24,18 +25,16 @@ app.get("/", (req, res) => {
 
 // Grammar correction
 app.post("/correct", async (req, res) => {
-  const text = req.body.text?.trim();
-
-  // Empty input
-  if (!text) {
-    return res.render("index", {
-      corrected: "Please enter some text to correct.",
-      originalText: "",
-    });
-  }
-
   try {
-    // Ask Gemini to correct the text
+    const text = req.body.text?.trim();
+
+    if (!text) {
+      return res.render("index", {
+        corrected: "Please enter some text to correct.",
+        originalText: "",
+      });
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
       contents: `
@@ -45,10 +44,10 @@ Correct the grammar, spelling, punctuation, and sentence structure
 of the following text.
 
 Rules:
-1. Preserve the original meaning.
-2. Do not add new information.
-3. Do not explain the corrections.
-4. Return ONLY the corrected text.
+- Preserve the original meaning.
+- Do not add new information.
+- Do not explain the corrections.
+- Return ONLY the corrected text.
 
 Text:
 ${text}
@@ -57,10 +56,6 @@ ${text}
 
     const correctedText = response.text;
 
-    console.log("Original:", text);
-    console.log("Corrected:", correctedText);
-
-    // Send result to EJS
     return res.render("index", {
       corrected: correctedText,
       originalText: text,
@@ -69,14 +64,21 @@ ${text}
   } catch (error) {
     console.error("Gemini API Error:", error);
 
-    return res.render("index", {
-      corrected: "Error while connecting to Gemini. Check the terminal.",
-      originalText: text,
+    return res.status(500).render("index", {
+      corrected: "Unable to correct the text. Please try again.",
+      originalText: req.body.text || "",
     });
   }
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`Server started at http://localhost:${port}`);
-});
+// Export for Vercel
+export default app;
+
+// Local development
+if (process.env.NODE_ENV !== "production") {
+  const port = process.env.PORT || 5000;
+
+  app.listen(port, () => {
+    console.log(`Server started at http://localhost:${port}`);
+  });
+}
